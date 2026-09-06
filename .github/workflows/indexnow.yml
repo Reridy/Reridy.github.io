@@ -1,0 +1,124 @@
+name: IndexNow
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notify-indexnow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Build IndexNow URL list
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess, xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          host = "reridy.github.io"
+          base = f"https://{host}"
+          key = "7621ed28513dd4db0fe8526c91f86918"
+          key_file = f"{key}.txt"
+          urls = set()
+
+          def all_sitemap_urls():
+              root = ET.parse("sitemap.xml").getroot()
+              ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+              return {loc.text.strip() for loc in root.findall("sm:url/sm:loc", ns) if loc.text}
+
+          event = os.environ.get("EVENT_NAME", "")
+          before = os.environ.get("BEFORE_SHA", "")
+          after = os.environ.get("AFTER_SHA", "HEAD")
+
+          if event == "workflow_dispatch":
+              urls = all_sitemap_urls()
+          else:
+              try:
+                  diff = subprocess.check_output(
+                      ["git", "diff", "--name-status", before, after], text=True
+                  ).splitlines()
+              except Exception:
+                  diff = []
+
+              changed = []
+              for line in diff:
+                  parts = line.split("\t")
+                  if len(parts) >= 2:
+                      changed.append((parts[0], parts[-1]))
+
+              # Initial IndexNow setup: submit the existing sitemap once.
+              if any(path == key_file or path == ".github/workflows/indexnow.yml" for _, path in changed):
+                  urls = all_sitemap_urls()
+              elif any(path.startswith("assets/") or path == "sitemap.xml" for _, path in changed):
+                  # Shared assets can affect every public page.
+                  urls = all_sitemap_urls()
+              else:
+                  ignored = {"404.html", "google1d299fe25c6bb58d.html"}
+                  for _, path in changed:
+                      if not path.endswith(".html") or path in ignored:
+                          continue
+                      if path == "index.html":
+                          urls.add(base + "/")
+                      else:
+                          urls.add(base + "/" + path)
+
+          payload = {
+              "host": host,
+              "key": key,
+              "keyLocation": f"{base}/{key_file}",
+              "urlList": sorted(urls),
+          }
+          Path("indexnow-payload.json").write_text(
+              json.dumps(payload, ensure_ascii=False), encoding="utf-8"
+          )
+          print(f"Prepared {len(urls)} URL(s) for IndexNow")
+          for url in sorted(urls):
+              print(url)
+          PY
+
+      - name: Wait for Pages and submit to IndexNow
+        run: |
+          COUNT=$(python -c 'import json; print(len(json.load(open("indexnow-payload.json"))["urlList"]))')
+          if [ "$COUNT" = "0" ]; then
+            echo "No public page changes to submit."
+            exit 0
+          fi
+
+          KEY="7621ed28513dd4db0fe8526c91f86918"
+          KEY_URL="https://reridy.github.io/${KEY}.txt"
+          echo "Waiting for the IndexNow key file to be available on GitHub Pages..."
+          for i in $(seq 1 30); do
+            BODY=$(curl -fsS "$KEY_URL" 2>/dev/null || true)
+            if [ "$BODY" = "$KEY" ]; then
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "Key file was not available after waiting; stopping to avoid an invalid submission."
+              exit 1
+            fi
+            sleep 10
+          done
+
+          # Give the Pages deployment a short head start before notifying crawlers.
+          sleep 30
+
+          HTTP_CODE=$(curl -sS -o indexnow-response.txt -w "%{http_code}" \
+            -X POST "https://api.indexnow.org/IndexNow" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data-binary @indexnow-payload.json)
+
+          echo "IndexNow HTTP status: $HTTP_CODE"
+          cat indexnow-response.txt || true
+          test "$HTTP_CODE" = "200" || test "$HTTP_CODE" = "202"
