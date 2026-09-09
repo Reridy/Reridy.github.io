@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://reridy.github.io/</loc></url>
-  <url><loc>https://reridy.github.io/grade-5.html</loc></url>
-  <url><loc>https://reridy.github.io/rank-cut.html</loc></url>
-  <url><loc>https://reridy.github.io/grade-boundary.html</loc></url>
+  <url><loc>https://reridy.github.io/grade-5.html</loc><lastmod>2026-09-09</lastmod></url>
+  <url><loc>https://reridy.github.io/rank-cut.html</loc><lastmod>2026-09-09</lastmod></url>
+  <url><loc>https://reridy.github.io/grade-boundary.html</loc><lastmod>2026-09-09</lastmod></url>
+  <url><loc>https://reridy.github.io/five-grade-guide.html</loc><lastmod>2026-09-09</lastmod></url>
   <url><loc>https://reridy.github.io/rank-percentile.html</loc></url>
   <url><loc>https://reridy.github.io/target-rank.html</loc></url>
   <url><loc>https://reridy.github.io/exam-target.html</loc></url>
