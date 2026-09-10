@@ -38,12 +38,13 @@ jobs:
               ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
               return {loc.text.strip() for loc in root.findall("sm:url/sm:loc", ns) if loc.text}
 
+          sitemap_urls = all_sitemap_urls()
           event = os.environ.get("EVENT_NAME", "")
           before = os.environ.get("BEFORE_SHA", "")
           after = os.environ.get("AFTER_SHA", "HEAD")
 
           if event == "workflow_dispatch":
-              urls = all_sitemap_urls()
+              urls = sitemap_urls
           else:
               try:
                   diff = subprocess.check_output(
@@ -58,21 +59,34 @@ jobs:
                   if len(parts) >= 2:
                       changed.append((parts[0], parts[-1]))
 
-              # Initial IndexNow setup: submit the existing sitemap once.
+              # Changes to discovery/configuration or shared assets can affect
+              # every canonical public URL, so submit the host sitemap set.
               if any(path == key_file or path == ".github/workflows/indexnow.yml" for _, path in changed):
-                  urls = all_sitemap_urls()
-              elif any(path.startswith("assets/") or path == "sitemap.xml" for _, path in changed):
-                  # Shared assets can affect every public page.
-                  urls = all_sitemap_urls()
+                  urls = sitemap_urls
+              elif any(
+                  path == "sitemap.xml"
+                  or path == "favicon.svg"
+                  or path == "hakgyesan/favicon.ico"
+                  or path.startswith("hakgyesan/assets/")
+                  for _, path in changed
+              ):
+                  urls = sitemap_urls
               else:
                   ignored = {"404.html", "google1d299fe25c6bb58d.html"}
                   for _, path in changed:
                       if not path.endswith(".html") or path in ignored:
                           continue
                       if path == "index.html":
-                          urls.add(base + "/")
+                          candidate = base + "/"
+                      elif path == "hakgyesan/index.html":
+                          candidate = base + "/hakgyesan/"
                       else:
-                          urls.add(base + "/" + path)
+                          candidate = base + "/" + path
+
+                      # Only notify canonical URLs that are intentionally listed
+                      # in the host sitemap. This excludes legacy migration stubs.
+                      if candidate in sitemap_urls:
+                          urls.add(candidate)
 
           payload = {
               "host": host,
