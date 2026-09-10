@@ -1,12 +1,8 @@
-# 학계산
+# Reridy.github.io
 
-학생을 위한 내신·시험 계산 도구 모음입니다.
+Reridy project hub.
 
-## 주요 기능
-- 내신 5등급 참고 계산
-- 등급 경계 및 석차 비율 계산
-- 중간·기말·수행평가 목표점수 역산
-- 최종점수 및 반영점수 계산
-- 목표 평균 및 과목별 가중평균 계산
+- `/hakgyesan/` — 학계산
+- `/paradox-doctor/` — Paradox Doctor
 
-사이트: https://reridy.github.io/
+Legacy root-level 학계산 URLs are kept as one-to-one migration pages.
