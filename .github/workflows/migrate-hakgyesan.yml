@@ -24,8 +24,11 @@ jobs:
       - name: Validate and commit migration
         run: |
           git diff --check
-          rm -f scripts/migrate_hakgyesan.py .github/workflows/migrate-hakgyesan.yml
-          rmdir scripts 2>/dev/null || true
+          # GitHub Actions' token cannot modify workflow files. Keep the
+          # temporary migration workflow/script on this branch for now and
+          # restore IndexNow; they will be cleaned up with the GitHub connector
+          # before this branch is merged.
+          git restore .github/workflows/indexnow.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
